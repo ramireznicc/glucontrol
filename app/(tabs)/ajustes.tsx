@@ -10,7 +10,7 @@ import {
 import { Text, TextInput, Button, IconButton, Snackbar, Divider } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants/theme';
+import { COLORS, FONTS } from '../../constants/theme';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import {
   getSettings,
@@ -20,6 +20,8 @@ import {
   deleteQuickMeal,
   deleteAllData,
 } from '../../lib/database';
+import { seedDemoData } from '../../lib/seedData';
+import { useRouter } from 'expo-router';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -170,6 +172,7 @@ function BrandInput({
 
 export default function AjustesScreen() {
   const insets = useSafeAreaInsets();
+  const router  = useRouter();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [minVal, setMinVal]       = useState('80');
@@ -179,6 +182,9 @@ export default function AjustesScreen() {
   const [longBrand,  setLongBrand]  = useState('');
   const [longName,   setLongName]   = useState('');
   const [userName,   setUserName]   = useState('');
+  const [carbRatio,      setCarbRatio]      = useState('3');
+  const [rapidSens,      setRapidSens]      = useState('30');
+  const [longSensPerHour, setLongSensPerHour] = useState('0.5');
   const [quickMeals, setQuickMeals] = useState<QuickMeal[]>([]);
   const [newMealName,  setNewMealName]  = useState('');
   const [newMealCarbs, setNewMealCarbs] = useState('');
@@ -186,6 +192,7 @@ export default function AjustesScreen() {
   const [snackVisible, setSnackVisible] = useState(false);
 
   const rangeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sensTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -197,6 +204,9 @@ export default function AjustesScreen() {
     setLongBrand( s.long_insulin_brand  ?? '');
     setLongName(  s.long_insulin_name   ?? '');
     setUserName(  s.user_name           ?? '');
+    setCarbRatio(     s.carb_ratio                ?? '3');
+    setRapidSens(     s.rapid_sensitivity         ?? '30');
+    setLongSensPerHour(s.long_sensitivity_per_hour ?? '0.5');
     setQuickMeals(getQuickMeals() as QuickMeal[]);
   }, []);
 
@@ -214,6 +224,25 @@ export default function AjustesScreen() {
       if (!isNaN(n) && n > 0 && n < 500) {
         updateSetting(key, String(n));
         showSnack('Rango guardado');
+      }
+    }, 700);
+  };
+
+  // ── Sensitivity handlers (debounce 700ms) ─────────────────────────────────
+  const handleSensChange = (
+    key: 'carb_ratio' | 'rapid_sensitivity' | 'long_sensitivity_per_hour',
+    setter: (v: string) => void,
+    val: string,
+    min: number,
+    max: number,
+  ) => {
+    setter(val);
+    if (sensTimer.current) clearTimeout(sensTimer.current);
+    sensTimer.current = setTimeout(() => {
+      const n = parseFloat(val);
+      if (!isNaN(n) && n >= min && n <= max) {
+        updateSetting(key, String(n));
+        showSnack('Sensibilidad guardada');
       }
     }, 700);
   };
@@ -273,6 +302,43 @@ export default function AjustesScreen() {
                 },
               ],
             );
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Querés cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar sesión',
+          style: 'destructive',
+          onPress: () => {
+            updateSetting('is_logged_in', 'false');
+            router.replace('/login');
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Load demo data ─────────────────────────────────────────────────────────
+  const handleLoadDemo = () => {
+    Alert.alert(
+      'Cargar datos demo',
+      'Se cargarán 7 días de registros ficticios de Juan García. Los datos actuales serán reemplazados.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cargar demo',
+          onPress: () => {
+            seedDemoData();
+            showSnack('Datos demo cargados');
           },
         },
       ],
@@ -393,6 +459,69 @@ export default function AjustesScreen() {
             </CardRow>
           </SectionCard>
 
+          {/* ── Sensibilidad ── */}
+          <SectionCard title="Sensibilidad (avanzado)">
+            <CardRow>
+              <Text style={styles.sensHint}>
+                Estos valores calibran las estimaciones de glucosa entre mediciones. Ajustalos si las proyecciones no coinciden con tu respuesta real.
+              </Text>
+            </CardRow>
+            <CardRow>
+              <Text style={styles.sensLabel}>Ratio de carbohidratos</Text>
+              <Text style={styles.sensDesc}>Cuántos mg/dL sube 1 g de carbohidratos</Text>
+              <View style={styles.sensInputRow}>
+                <TextInput
+                  mode="outlined"
+                  label="mg/dL por gramo"
+                  value={carbRatio}
+                  onChangeText={v => handleSensChange('carb_ratio', setCarbRatio, v, 0.5, 20)}
+                  keyboardType="decimal-pad"
+                  style={[styles.inputField, { flex: 1 }]}
+                  dense
+                />
+                <View style={styles.sensDefault}>
+                  <Text style={styles.sensDefaultText}>Default: 3</Text>
+                </View>
+              </View>
+            </CardRow>
+            <CardRow>
+              <Text style={styles.sensLabel}>Sensibilidad a insulina rápida</Text>
+              <Text style={styles.sensDesc}>Cuántos mg/dL baja 1 unidad de insulina rápida</Text>
+              <View style={styles.sensInputRow}>
+                <TextInput
+                  mode="outlined"
+                  label="mg/dL por unidad"
+                  value={rapidSens}
+                  onChangeText={v => handleSensChange('rapid_sensitivity', setRapidSens, v, 5, 200)}
+                  keyboardType="decimal-pad"
+                  style={[styles.inputField, { flex: 1 }]}
+                  dense
+                />
+                <View style={styles.sensDefault}>
+                  <Text style={styles.sensDefaultText}>Default: 30</Text>
+                </View>
+              </View>
+            </CardRow>
+            <CardRow last>
+              <Text style={styles.sensLabel}>Sensibilidad a insulina lenta</Text>
+              <Text style={styles.sensDesc}>Cuántos mg/dL baja 1 unidad de insulina lenta por hora</Text>
+              <View style={styles.sensInputRow}>
+                <TextInput
+                  mode="outlined"
+                  label="mg/dL por unidad/hora"
+                  value={longSensPerHour}
+                  onChangeText={v => handleSensChange('long_sensitivity_per_hour', setLongSensPerHour, v, 0.1, 10)}
+                  keyboardType="decimal-pad"
+                  style={[styles.inputField, { flex: 1 }]}
+                  dense
+                />
+                <View style={styles.sensDefault}>
+                  <Text style={styles.sensDefaultText}>Default: 0.5</Text>
+                </View>
+              </View>
+            </CardRow>
+          </SectionCard>
+
           {/* ── Comidas rápidas ── */}
           <SectionCard title="Comidas rápidas">
             {quickMeals.length === 0 && (
@@ -459,10 +588,28 @@ export default function AjustesScreen() {
                 <Text style={styles.actionChevron}>›</Text>
               </TouchableOpacity>
             </CardRow>
+            <CardRow>
+              <TouchableOpacity style={styles.actionRow} onPress={handleLoadDemo}>
+                <Text style={styles.actionLabel}>Cargar datos demo</Text>
+                <Text style={styles.actionChevron}>›</Text>
+              </TouchableOpacity>
+            </CardRow>
             <CardRow last>
               <TouchableOpacity style={styles.actionRow} onPress={handleDeleteAll}>
                 <Text style={[styles.actionLabel, { color: COLORS.danger }]}>
                   Borrar todos los datos
+                </Text>
+                <Text style={[styles.actionChevron, { color: COLORS.danger }]}>›</Text>
+              </TouchableOpacity>
+            </CardRow>
+          </SectionCard>
+
+          {/* ── Sesión ── */}
+          <SectionCard title="Sesión">
+            <CardRow last>
+              <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
+                <Text style={[styles.actionLabel, { color: COLORS.danger }]}>
+                  Cerrar sesión
                 </Text>
                 <Text style={[styles.actionChevron, { color: COLORS.danger }]}>›</Text>
               </TouchableOpacity>
@@ -532,7 +679,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: COLORS.text,
-    fontWeight: '700',
+    fontFamily: FONTS.serif,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -742,6 +889,40 @@ const styles = StyleSheet.create({
   poweredByBrand: {
     fontSize: 13,
     fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  // Sensitivity section
+  sensHint: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 19,
+  },
+  sensLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  sensDesc: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+  },
+  sensInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sensDefault: {
+    backgroundColor: COLORS.primaryContainer,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  sensDefaultText: {
+    fontSize: 12,
+    fontWeight: '500',
     color: COLORS.primary,
   },
 

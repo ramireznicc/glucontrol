@@ -2,7 +2,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants/theme';
+import { COLORS, FONTS } from '../../constants/theme';
 import ScreenWrapper from '../../components/ScreenWrapper';
 
 export default function HistorialScreen() {
@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: COLORS.text,
-    fontWeight: '700',
+    fontFamily: FONTS.serif,
   },
   container: {
     flex: 1,

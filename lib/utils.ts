@@ -12,7 +12,11 @@ export const getCurrentTime = (): string => {
  * Combines today's date with the given "HH:MM" string → ISO 8601
  */
 export const buildTimestamp = (timeStr: string): string => {
-  const today = new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const year  = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day   = String(d.getDate()).padStart(2, '0');
+  const today = `${year}-${month}-${day}`;
   const [hours, minutes] = timeStr.split(':');
   const h = String(Number(hours ?? 0)).padStart(2, '0');
   const m = String(Number(minutes ?? 0)).padStart(2, '0');

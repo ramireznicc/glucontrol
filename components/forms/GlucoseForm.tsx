@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, Keyboard, StyleSheet } from 'react-native';
 import { TextInput, Button, Chip, Text } from 'react-native-paper';
 import { COLORS } from '../../constants/theme';
 import { insertGlucose } from '../../lib/database';
@@ -47,14 +47,15 @@ export default function GlucoseForm({ settings, onSaved }: Props) {
       notes,
       timestamp: buildTimestamp(time),
     });
-    onSaved('Glucosa guardada');
+    Keyboard.dismiss();
+    setValueStr('');
+    setNotes('');
+    setTime(getCurrentTime());
+    onSaved('Glucosa guardada ✓');
   };
 
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.container}
-    >
+    <View style={styles.container}>
       <View style={styles.valueRow}>
         <TextInput
           mode="outlined"
@@ -119,7 +120,7 @@ export default function GlucoseForm({ settings, onSaved }: Props) {
       >
         Guardar glucosa
       </Button>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -138,10 +139,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   valueInputContent: {
-    fontSize: 32,
+    fontSize: 20,
     textAlign: 'center',
     fontWeight: '700',
-    paddingVertical: 12,
+    paddingVertical: 4,
   },
   badge: {
     paddingHorizontal: 14,

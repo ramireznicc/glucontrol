@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, Keyboard, StyleSheet } from 'react-native';
 import { TextInput, Button, Chip, Text } from 'react-native-paper';
 import { COLORS } from '../../constants/theme';
 import { insertMeal, getQuickMeals } from '../../lib/database';
@@ -57,14 +57,16 @@ export default function MealForm({ onSaved }: Props) {
       notes,
       timestamp: buildTimestamp(time),
     });
-    onSaved('Comida guardada');
+    Keyboard.dismiss();
+    setDescription('');
+    setCarbsStr('');
+    setNotes('');
+    setTime(getCurrentTime());
+    onSaved('Comida guardada ✓');
   };
 
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.container}
-    >
+    <View style={styles.container}>
       <TextInput
         mode="outlined"
         label="Descripción"
@@ -144,7 +146,7 @@ export default function MealForm({ onSaved }: Props) {
       >
         Guardar comida
       </Button>
-    </ScrollView>
+    </View>
   );
 }
 

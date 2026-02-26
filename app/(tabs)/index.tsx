@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   ScrollView,
@@ -6,13 +6,15 @@ import {
   Alert,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 import { Text, Button, IconButton } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS } from '../../constants/theme';
+import { COLORS, FONTS } from '../../constants/theme';
 import ScreenWrapper from '../../components/ScreenWrapper';
+import GlucoseChart from '../../components/GlucoseChart';
 import {
   getEntriesByDate,
   getSettings,
@@ -21,6 +23,7 @@ import {
   deleteExercise,
   deleteInsulin,
 } from '../../lib/database';
+import { estimateGlucoseAtTime } from '../../lib/glucoseEstimator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,6 +126,97 @@ const ENTRY_EMOJI: Record<EntryType, string> = {
   meal: '🍽️',
   exercise: '🏃',
 };
+
+// ─── Glucose status ───────────────────────────────────────────────────────────
+
+type StatusLevel = 'good' | 'low_warn' | 'high_warn' | 'low_danger' | 'high_danger';
+
+function getStatusLevel(value: number, min: number, max: number): StatusLevel {
+  if (value < min - 20) return 'low_danger';
+  if (value > max + 50) return 'high_danger';
+  if (value < min)      return 'low_warn';
+  if (value > max)      return 'high_warn';
+  return 'good';
+}
+
+const STATUS_CONFIG: Record<StatusLevel, {
+  emoji: string;
+  title: string;
+  subtitle: string;
+  color: string;
+  bg: string;
+  border: string;
+}> = {
+  good: {
+    emoji: '😊',
+    title: 'Tu glucemia debería estar bien',
+    subtitle: 'Estarías dentro de tu rango objetivo',
+    color: COLORS.success,
+    bg: '#F0FDF4',
+    border: '#BBF7D0',
+  },
+  low_warn: {
+    emoji: '😐',
+    title: 'Glucemia posiblemente un poco baja',
+    subtitle: 'Podría estar levemente por debajo del rango',
+    color: COLORS.warning,
+    bg: '#FFFBEB',
+    border: '#FDE68A',
+  },
+  high_warn: {
+    emoji: '😐',
+    title: 'Glucemia posiblemente un poco alta',
+    subtitle: 'Podría estar levemente por encima del rango',
+    color: COLORS.warning,
+    bg: '#FFFBEB',
+    border: '#FDE68A',
+  },
+  low_danger: {
+    emoji: '😟',
+    title: 'Glucemia posiblemente baja',
+    subtitle: 'Podría estar bastante por debajo del rango',
+    color: COLORS.danger,
+    bg: '#FFF1F2',
+    border: '#FECDD3',
+  },
+  high_danger: {
+    emoji: '😟',
+    title: 'Glucemia posiblemente alta',
+    subtitle: 'Podría estar bastante por encima del rango',
+    color: COLORS.danger,
+    bg: '#FFF1F2',
+    border: '#FECDD3',
+  },
+};
+
+function GlucoseStatusCard({
+  estimated,
+  settings,
+}: {
+  estimated: number;
+  settings: Record<string, string>;
+}) {
+  const min = parseFloat(settings.target_min ?? '80');
+  const max = parseFloat(settings.target_max ?? '130');
+  const level = getStatusLevel(estimated, min, max);
+  const cfg = STATUS_CONFIG[level];
+
+  return (
+    <View style={[styles.statusCard, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
+      <Text style={styles.statusEmoji}>{cfg.emoji}</Text>
+      <Text style={[styles.statusTitle, { color: cfg.color }]}>{cfg.title}</Text>
+      <Text style={styles.statusSubtitle}>{cfg.subtitle}</Text>
+      <Text style={[styles.statusValue, { color: cfg.color }]}>
+        ~{Math.round(estimated)} mg/dL
+      </Text>
+      <View style={styles.statusDivider} />
+      <Text style={styles.statusDisclaimer}>
+        📊 Estimación según los datos aportados hoy{'\n'}
+        🩸 Para mayor seguridad, realizá un control con tu glucómetro
+      </Text>
+    </View>
+  );
+}
 
 // ─── Entry card content ───────────────────────────────────────────────────────
 
@@ -275,6 +369,8 @@ function SummaryCard({
 export default function HoyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+  const chartWidth = screenWidth - 32;
 
   const [date, setDate] = useState(getLocalDateStr);
   const [entries, setEntries] = useState<AnyEntry[]>([]);
@@ -344,6 +440,14 @@ export default function HoyScreen() {
   const isToday = date === todayStr;
   const canGoForward = date < todayStr;
 
+  // Estimated current glucose (only meaningful for today)
+  const currentEstimate = useMemo(() => {
+    if (!isToday || entries.length === 0) return null;
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    return estimateGlucoseAtTime(entries, currentMinutes, settings);
+  }, [entries, settings, isToday]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <ScreenWrapper>
@@ -374,14 +478,12 @@ export default function HoyScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Greeting (solo hoy) ── */}
-      {isToday && (
-        <View style={styles.greetingRow}>
-          <Text style={styles.greetingText}>
-            {getGreeting(settings.user_name)}
-          </Text>
-        </View>
-      )}
+      {/* ── Greeting ── */}
+      <View style={styles.greetingRow}>
+        <Text style={styles.greetingText}>
+          {getGreeting(settings.user_name)}
+        </Text>
+      </View>
 
       {/* ── Summary row ── */}
       <View style={styles.summaryRow}>
@@ -426,6 +528,33 @@ export default function HoyScreen() {
           />
         }
       >
+        {/* ── Current glucose status ── */}
+        {currentEstimate !== null && (
+          <GlucoseStatusCard estimated={currentEstimate} settings={settings} />
+        )}
+
+        {/* ── Day glucose chart ── */}
+        {entries.length > 0 && (
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTitle}>Curva del día</Text>
+            <GlucoseChart events={entries} settings={settings} width={chartWidth} />
+            <View style={styles.chartLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#34D399' }]} />
+                <Text style={styles.legendLabel}>Comida</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#818CF8' }]} />
+                <Text style={styles.legendLabel}>Insulina</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#FBBF24' }]} />
+                <Text style={styles.legendLabel}>Ejercicio</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {entries.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>📋</Text>
@@ -450,7 +579,7 @@ export default function HoyScreen() {
           </View>
         ) : (
           <View style={styles.timeline}>
-            {entries.map((entry, index) => (
+            {[...entries].reverse().map((entry, index) => (
               <TimelineEntry
                 key={`${entry.entry_type}-${entry.id}`}
                 entry={entry}
@@ -489,7 +618,7 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: FONTS.serif,
     color: COLORS.text,
   },
 
@@ -500,9 +629,9 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   greetingText: {
-    fontSize: 15,
+    fontSize: 16,
     color: COLORS.textSecondary,
-    fontWeight: '400',
+    fontFamily: FONTS.serifRegular,
   },
 
   // Summary
@@ -548,6 +677,51 @@ const styles = StyleSheet.create({
   // Scroll
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
+
+  // Chart card
+  chartCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    marginBottom: 16,
+    shadowColor: '#1E293B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  chartTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    paddingHorizontal: 16,
+    marginBottom: 6,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  legendLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
 
   // Timeline
   timeline: {},
@@ -647,6 +821,54 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '700',
+  },
+
+  // Glucose status card
+  statusCard: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#1E293B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  statusEmoji: {
+    fontSize: 56,
+    marginBottom: 10,
+  },
+  statusTitle: {
+    fontSize: 20,
+    fontFamily: FONTS.serif,
+    textAlign: 'center',
+    marginBottom: 4,
+    lineHeight: 26,
+  },
+  statusSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  statusValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 14,
+  },
+  statusDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginBottom: 12,
+  },
+  statusDisclaimer: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 
   // Empty state

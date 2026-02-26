@@ -1,4 +1,4 @@
-import { MD3LightTheme } from 'react-native-paper';
+import { MD3LightTheme, configureFonts } from 'react-native-paper';
 
 export const COLORS = {
   primary: '#6366F1',
@@ -12,8 +12,28 @@ export const COLORS = {
   danger: '#EF4444',
 };
 
+// ─── Serif font (Playfair Display) ────────────────────────────────────────────
+// Cargadas en _layout.tsx con useFonts
+export const FONTS = {
+  serif:        'PlayfairDisplay_700Bold',
+  serifMedium:  'PlayfairDisplay_500Medium',
+  serifRegular: 'PlayfairDisplay_400Regular',
+};
+
+// ─── Override headline/display variants → serif ───────────────────────────────
+const fontConfig = {
+  displayLarge:   { fontFamily: FONTS.serif },
+  displayMedium:  { fontFamily: FONTS.serif },
+  displaySmall:   { fontFamily: FONTS.serif },
+  headlineLarge:  { fontFamily: FONTS.serif },
+  headlineMedium: { fontFamily: FONTS.serif },
+  headlineSmall:  { fontFamily: FONTS.serif },
+  titleLarge:     { fontFamily: FONTS.serifMedium },
+};
+
 export const theme = {
   ...MD3LightTheme,
+  fonts: configureFonts({ config: fontConfig }),
   colors: {
     ...MD3LightTheme.colors,
     primary: COLORS.primary,

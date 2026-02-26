@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, Keyboard, StyleSheet } from 'react-native';
 import { TextInput, Button, Chip, Text, Banner } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../../constants/theme';
@@ -38,14 +38,15 @@ export default function InsulinForm({ settings, onSaved }: Props) {
       notes,
       timestamp: buildTimestamp(time),
     });
-    onSaved('Insulina guardada');
+    Keyboard.dismiss();
+    setUnitsStr('');
+    setNotes('');
+    setTime(getCurrentTime());
+    onSaved('Insulina guardada ✓');
   };
 
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.container}
-    >
+    <View style={styles.container}>
       <Text variant="labelMedium" style={styles.sectionLabel}>Tipo de insulina</Text>
       <View style={styles.typeRow}>
         {(['rapida', 'lenta'] as const).map((t) => (
@@ -122,7 +123,7 @@ export default function InsulinForm({ settings, onSaved }: Props) {
       >
         Guardar insulina
       </Button>
-    </ScrollView>
+    </View>
   );
 }
 

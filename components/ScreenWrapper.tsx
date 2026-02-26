@@ -1,40 +1,11 @@
-import React, { useRef, useCallback } from 'react';
-import { Animated, StyleSheet, Easing } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 
 export default function ScreenWrapper({ children }: { children: React.ReactNode }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(10)).current;
-
-  useFocusEffect(
-    useCallback(() => {
-      opacity.setValue(0);
-      translateY.setValue(10);
-
-      const anim = Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 240,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 240,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]);
-
-      anim.start();
-      return () => anim.stop();
-    }, []),
-  );
-
   return (
-    <Animated.View style={[styles.container, { opacity, transform: [{ translateY }] }]}>
+    <View style={styles.container}>
       {children}
-    </Animated.View>
+    </View>
   );
 }
 

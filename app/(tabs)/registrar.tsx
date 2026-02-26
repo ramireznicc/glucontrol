@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Text, Snackbar, TouchableRipple } from 'react-native-paper';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../../constants/theme';
+import { COLORS, FONTS } from '../../constants/theme';
 import { getSettings } from '../../lib/database';
 import GlucoseForm from '../../components/forms/GlucoseForm';
 import MealForm from '../../components/forms/MealForm';
@@ -129,11 +129,11 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 4,
+    paddingBottom: 12,
   },
   headerTitle: {
     color: COLORS.text,
-    fontWeight: '700',
+    fontFamily: FONTS.serif,
   },
   typeSelector: {
     flexDirection: 'row',

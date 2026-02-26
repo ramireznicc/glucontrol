@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, Keyboard, StyleSheet } from 'react-native';
 import { TextInput, Button, Chip, Text, IconButton } from 'react-native-paper';
 import { COLORS } from '../../constants/theme';
 import { insertExercise } from '../../lib/database';
@@ -37,14 +37,15 @@ export default function ExerciseForm({ onSaved }: Props) {
       notes,
       timestamp: buildTimestamp(time),
     });
-    onSaved('Ejercicio guardado');
+    Keyboard.dismiss();
+    setDuration(30);
+    setNotes('');
+    setTime(getCurrentTime());
+    onSaved('Ejercicio guardado ✓');
   };
 
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.container}
-    >
+    <View style={styles.container}>
       <Text variant="labelMedium" style={styles.sectionLabel}>Tipo de ejercicio</Text>
       <View style={styles.typeGrid}>
         {EXERCISE_TYPES.map((t) => (
@@ -125,7 +126,7 @@ export default function ExerciseForm({ onSaved }: Props) {
       >
         Guardar ejercicio
       </Button>
-    </ScrollView>
+    </View>
   );
 }
 
